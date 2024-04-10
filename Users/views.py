@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth import update_session_auth_hash
 from rest_framework.permissions import IsAuthenticated
@@ -17,6 +18,7 @@ from Api.models import MissingPerson, FoundPerson
 from Api.serializers import MissingPersonSerializer, ReportedSeenPersonSerializer
 from django.db.models import Q
 
+from django.core.mail import send_mail
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -149,9 +151,29 @@ class Fogortpaswd(APIView):
             created_for=user,
             code=Otp.get_code()
         )
-        otp_serializer = OtpSerializer(otp).data
 
-        return Response({"code": otp_serializer["code"]})
+        try:
+            send_mail(
+                subject="One Time Password Request",
+                message=f'''
+                Hello ,
+
+                User {user.user_name} has requested an OTP. Please verify their request and proceed accordingly.
+                Use the OTP below
+
+                Code : {otp.code}
+
+                Thank you,
+                Find Me Team
+                ''',
+                from_email=f"(FindMe Team) <{settings.EMAIL_HOST_USER}>",
+                recipient_list=[email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            raise Exception(f"Failed to send email: {str(e)}")
+
+        return Response({"code": otp.created_for.u_id}, status=status.HTTP_200_OK)
 
 
 class VerifyOtp(APIView):
@@ -169,10 +191,10 @@ class VerifyOtp(APIView):
 
         if otp_instance.is_valid():
             otp_serializer = OtpSerializer(otp_instance).data
-            user = User.objects.get(id=otp_serializer.get("created_for", {}))
+            user = User.objects.get(id=otp_serializer.get("created_for"))
             user_serializer = CustomUserSerializer(user).data
 
-            return Response({"msg": "Valid OTP. You can proceed with password change.", "user": user_serializer.get("id", "no email")})
+            return Response({"msg": "Valid OTP. You can proceed with password change.", "user": user_serializer.get("u_id", "")})
         else:
             return Response({"msg": "Invalid or expired OTP code"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -180,28 +202,31 @@ class VerifyOtp(APIView):
 class ChangePasskey(APIView):
     permission_classes = [AllowAny]
 
-    def put(self, request, u_id):
+    def post(self, request, id):
 
         try:
-            user_instance = User.objects.get(u_id=u_id)
+            user_instance = User.objects.get(u_id=id)
 
         except User.DoesNotExist:
             return Response({"msg": "no user found"}, status=status.HTTP_404_NOT_FOUND)
 
         try:
+            code = request.data.get("code", "")
+            if not code:
+                return Response({"msg": "No code entered"}, status=status.HTTP_400_BAD_REQUEST)
             user_otp = Otp.objects.get(
-                Q(created_for=user_instance.id) & Q(code=request.data.get("code")))
+                Q(created_for=user_instance.id) & Q(code=code))
 
         except Otp.DoesNotExist:
             return Response({"msg": "Invalid data"}, status=status.HTTP_404_NOT_FOUND)
 
         if user_otp:
-            user_serializer = CustomUserSerializer(
-                data=request.data, instance=user_instance, partial=True)
+            password = request.data.get("password", "")
+            if not password:
+                return Response({"msg": "New password required"}, status=status.HTTP_400_BAD_REQUEST)
+            user_instance.set_password(request.data.get("password"))
+            user_instance.save()
 
-            if user_serializer.is_valid():
-                user_serializer.save()
-
-                return Response({"msg": "password changed successfully"}, status=status.HTTP_200_OK)
-            else:
-                return Response({"msg": "Invalid data", "errors": user_serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"msg": "password changed successfully"}, status=status.HTTP_200_OK)
+        else:
+            return Response({"msg": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)

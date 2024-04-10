@@ -13,6 +13,7 @@ urlpatterns = [
     path("api/missing/details/<str:trackCode>",
          views.Missing_Details, name="fdetails"),
     path("api/seen/details/<int:id>", views.Seen_Details, name="sdetails"),
+    path("api/locations/all", views.getLocations, name="locations"),
 
 
 ]

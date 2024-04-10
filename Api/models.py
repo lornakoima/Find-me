@@ -56,21 +56,21 @@ class FoundPersonLocation(models.Model):
     county = models.CharField(max_length=50, default="", null=True, blank=True)
     name = models.CharField(max_length=50, default="", null=True, blank=True)
     latitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True)
+        max_digits=17, decimal_places=15, null=True, blank=True)
     longitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True)
-    time_found = models.DateTimeField(default=timezone.now)
+        max_digits=17, decimal_places=15, null=True, blank=True)
+    time_found = models.TimeField(default=timezone.now)
     found_person = models.OneToOneField(
-        MissingPerson, on_delete=models.CASCADE)
+        FoundPerson, on_delete=models.CASCADE)
 
 
 class MissingPersonLocation(models.Model):
     county = models.CharField(max_length=50, default="", null=True, blank=True)
     name = models.CharField(max_length=50, default="", null=True, blank=True)
     latitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True)
+        max_digits=17, decimal_places=15, null=True, blank=True)
     longitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True)
-    time_seen = models.DateTimeField(default=timezone.now)
+        max_digits=17, decimal_places=15, null=True, blank=True)
+    time_seen = models.TimeField(default=timezone.now)
     missing_person = models.OneToOneField(
         MissingPerson, on_delete=models.CASCADE)
