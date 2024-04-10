@@ -1,10 +1,11 @@
+from django.utils import timezone
 
 # Create your models here.
-from datetime import timezone
 import random
 import string
 from django.db import models
-from Api.models import MissingPerson
+from Api.models import FoundPerson, MissingPerson
+from Users.models import User
 
 # Create your models here.
 
@@ -16,7 +17,11 @@ class Case(models.Model):
         MissingPerson, on_delete=models.CASCADE, null=True, blank=True)
     status = models.CharField(max_length=20, choices=[(
         'open', 'Open'), ('closed', 'Closed')], default='open')
-    notes = models.TextField(blank=True, default="")
+    found_person = models.ForeignKey(
+        FoundPerson, on_delete=models.CASCADE, null=True, blank=True)
+    type = models.CharField(max_length=20, choices=[(
+        'missing', 'Missing'), ('found', 'Found')])
+    created_at = models.DateField(default=timezone.now)
 
     def generate_case_number(self):
         case_number = ''.join(random.choices(
@@ -32,3 +37,22 @@ class Case(models.Model):
         if not self.case_number:
             self.case_number = self.generate_case_number()
         super().save(*args, **kwargs)
+
+
+class Remark(models.Model):
+    case_id = models.ForeignKey(
+        Case, on_delete=models.CASCADE, null=True, blank=True)
+    remarks = models.TextField(blank=True, default="")
+    created_at = models.DateField(default=timezone.now)
+    created_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, null=True, blank=True)
+
+
+class Notification(models.Model):
+    message = models.TextField(default="", blank=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, null=True, blank=True, related_name='notifications_creator'
+    )
+    recepient = models.ForeignKey(
+        User, on_delete=models.CASCADE, null=True, blank=True, related_name='notifications_receiver'
+    )
